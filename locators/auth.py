@@ -16,8 +16,8 @@ class ForgotPasswordLocators:
 
 
 class ResetPasswordLocators:
-    PASSWORD = (By.XPATH, '//label[text()="Введите новый пароль"]/following-sibling::input')
-    PASSWORD_WRAPPER = (By.XPATH, '//label[text()="Введите новый пароль"]/parent::div')
-    SHOW_PASSWORD = (By.CSS_SELECTOR, 'form .input__icon')
+    PASSWORD = (By.CSS_SELECTOR, 'form input[name="Введите новый пароль"]')
+    PASSWORD_WRAPPER = (By.XPATH, '//form//input[@name="Введите новый пароль"]/parent::div[contains(concat(" ", normalize-space(@class), " "), " input ")]')
+    SHOW_PASSWORD = (By.XPATH, '//form//input[@name="Введите новый пароль"]/parent::div/div[contains(concat(" ", normalize-space(@class), " "), " input__icon ")]')
     CODE = (By.XPATH, '//label[text()="Введите код из письма"]/following-sibling::input')
     SAVE = (By.XPATH, '//button[text()="Сохранить"]')

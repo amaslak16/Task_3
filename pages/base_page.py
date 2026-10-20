@@ -68,6 +68,9 @@ class BasePage:
         except (NoSuchElementException, StaleElementReferenceException):
             return False
 
+    def element_is_focused(self, locator):
+        return self._driver.switch_to.active_element == self._driver.find_element(*locator)
+
     @staticmethod
     def locator(template, **values):
         return template[0], template[1].format(**values)

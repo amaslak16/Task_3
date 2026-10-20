@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -12,6 +13,10 @@ from config import settings
 from data import Order, User
 from errors import PreparationError
 from helpers import Pages
+
+
+_driver_key = pytest.StashKey()
+_logger = logging.getLogger(__name__)
 
 
 def pytest_addoption(parser):
@@ -33,10 +38,13 @@ def driver(request):
         instance = BrowserFactory.create(browser, headless=not request.config.getoption("--headed"))
     except WebDriverException as error:
         raise PreparationError(f"Не удалось запустить {browser}: {error}") from error
-    allure.dynamic.label("browser", browser)
-    allure.dynamic.parameter("browser", browser)
-    yield instance
-    instance.quit()
+    request.node.stash[_driver_key] = instance
+    try:
+        allure.dynamic.label("browser", browser)
+        allure.dynamic.parameter("browser", browser)
+        yield instance
+    finally:
+        instance.quit()
 
 
 @pytest.fixture
@@ -86,33 +94,47 @@ def reset_form(pages, registered_user):
     return pages.reset
 
 
+def _attach_diagnostics(instance):
+    captures = [
+        ("Экран при ошибке", allure.attachment_type.PNG, instance.get_screenshot_as_png),
+        ("DOM при ошибке", allure.attachment_type.HTML, lambda: instance.page_source),
+        ("URL при ошибке", allure.attachment_type.TEXT, lambda: instance.current_url),
+    ]
+    if instance.capabilities.get("browserName") == "chrome":
+        captures.extend([
+            ("Консоль браузера", allure.attachment_type.JSON,
+             lambda: json.dumps(instance.get_log("browser"), ensure_ascii=False)),
+            ("Ошибки сетевых запросов", allure.attachment_type.JSON,
+             lambda: json.dumps(_network_failures(instance), ensure_ascii=False)),
+        ])
+    for name, attachment_type, capture in captures:
+        try:
+            allure.attach(capture(), name, attachment_type)
+        except (WebDriverException, ValueError, TypeError, KeyError) as error:
+            _logger.warning("Не удалось сохранить вложение %s: %s", name, type(error).__name__)
+
+
+def _network_failures(instance):
+    failures = []
+    for entry in instance.get_log("performance"):
+        message = json.loads(entry["message"])["message"]
+        if message["method"] == "Network.responseReceived":
+            response = message["params"]["response"]
+            if response["status"] >= 400:
+                failures.append({"url": response["url"].split("?")[0], "status": response["status"]})
+        elif message["method"] == "Network.loadingFailed":
+            failures.append({"error": message["params"]["errorText"]})
+    return failures
+
+
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
+def pytest_runtest_makereport(item):
     outcome = yield
     report = outcome.get_result()
     if report.failed:
-        instance = item.funcargs.get("driver")
+        instance = item.stash.get(_driver_key, None)
         if instance:
-            try:
-                allure.attach(instance.get_screenshot_as_png(), "Экран при ошибке", allure.attachment_type.PNG)
-                allure.attach(instance.page_source, "DOM при ошибке", allure.attachment_type.HTML)
-                allure.attach(instance.current_url, "URL при ошибке", allure.attachment_type.TEXT)
-                if instance.capabilities["browserName"] == "chrome":
-                    allure.attach(json.dumps(instance.get_log("browser"), ensure_ascii=False),
-                                  "Консоль браузера", allure.attachment_type.JSON)
-                    failures = []
-                    for entry in instance.get_log("performance"):
-                        message = json.loads(entry["message"])["message"]
-                        if message["method"] == "Network.responseReceived":
-                            response = message["params"]["response"]
-                            if response["status"] >= 400:
-                                failures.append({"url": response["url"].split("?")[0], "status": response["status"]})
-                        elif message["method"] == "Network.loadingFailed":
-                            failures.append({"error": message["params"]["errorText"]})
-                    allure.attach(json.dumps(failures, ensure_ascii=False),
-                                  "Ошибки сетевых запросов", allure.attachment_type.JSON)
-            except WebDriverException:
-                pass
+            _attach_diagnostics(instance)
 
 
 def pytest_sessionfinish(session, exitstatus):

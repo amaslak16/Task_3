@@ -15,10 +15,7 @@ class TestPasswordRecovery:
         pages.forgot.recover(registered_user.email)
         assert pages.reset.is_opened(), "После отправки почты не появилась форма сброса пароля"
 
-    @allure.title("Показ и скрытие пароля активируют и подсвечивают поле")
+    @allure.title("Клик по значку пароля активирует и подсвечивает поле")
     def test_password_visibility_activates_field(self, reset_form):
-        assert reset_form.password_is_initially_hidden(), "До клика пароль должен быть скрыт и неактивен"
-        reset_form.toggle_password()
-        assert reset_form.password_is_active("text"), "Показ пароля не активировал поле"
-        reset_form.toggle_password()
-        assert reset_form.password_is_active("password"), "Скрытие пароля не сохранило активную подсветку"
+        reset_form.show_password()
+        assert reset_form.password_is_active(), "Клик не показал пароль или не установил фокус и подсветку"

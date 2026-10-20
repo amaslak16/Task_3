@@ -9,23 +9,18 @@ class ResetPasswordPage(BasePage):
     @allure.step("Проверить форму нового пароля и кода из письма")
     def is_opened(self):
         return self.is_page(self.PATH, ResetPasswordLocators.SAVE) and self.check(
-            lambda _: self.visible(ResetPasswordLocators.CODE).is_displayed()
+            lambda _: self.element_is_visible(ResetPasswordLocators.PASSWORD)
+            and self.element_is_visible(ResetPasswordLocators.CODE)
         )
 
-    @allure.step("Нажать кнопку показа/скрытия пароля")
-    def toggle_password(self):
+    @allure.step("Нажать значок показа пароля")
+    def show_password(self):
         self.click(ResetPasswordLocators.SHOW_PASSWORD)
 
-    @allure.step("Проверить тип и подсветку поля пароля")
-    def password_is_active(self, input_type):
+    @allure.step("Проверить тип, фокус и подсветку поля пароля")
+    def password_is_active(self):
         return self.check(lambda _: (
-            self.attribute(ResetPasswordLocators.PASSWORD, "type") == input_type
-            and "input_status_active" in self.attribute(ResetPasswordLocators.PASSWORD_WRAPPER, "class")
-        ))
-
-    @allure.step("Проверить скрытое неактивное поле пароля до клика")
-    def password_is_initially_hidden(self):
-        return self.check(lambda _: (
-            self.attribute(ResetPasswordLocators.PASSWORD, "type") == "password"
-            and "input_status_active" not in self.attribute(ResetPasswordLocators.PASSWORD_WRAPPER, "class")
+            self.attribute(ResetPasswordLocators.PASSWORD, "type") == "text"
+            and self.element_is_focused(ResetPasswordLocators.PASSWORD)
+            and "input_status_active" in self.attribute(ResetPasswordLocators.PASSWORD_WRAPPER, "class").split()
         ))

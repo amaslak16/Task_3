@@ -43,6 +43,13 @@ class BrowserFactory:
                 if not os.getenv("FIREFOX_BINARY"):
                     options.binary_location = str(snap_directory / "firefox")
             driver = webdriver.Firefox(service=FirefoxService(executable_path=path), options=options)
-        driver.set_window_size(1600, 1000)
-        driver.set_page_load_timeout(45)
+        try:
+            driver.set_window_size(1600, 1000)
+            driver.set_page_load_timeout(45)
+        except Exception:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            raise
         return driver
