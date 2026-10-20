@@ -53,3 +53,6 @@ Desktop.ini
 # Runtime artifacts
 *.log
 .ipynb_checkpoints/
+allure-results/
+allure-report/
+artifacts/
